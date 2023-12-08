@@ -9,6 +9,9 @@
 #include <map>
 
 
+// 7 MINUTE RUN TIME FOR PART 2
+
+
 // DIFFICULTY
 static constexpr int PUZZLE_PART = 1;
 
@@ -22,6 +25,9 @@ struct Node
 	std::string id{ "" };
 	std::string leftPath{ "" };
 	std::string rightPath{ "" };
+
+	size_t cycle;
+	size_t distance;
 };
 
 using NodeMap = std::map<std::string, Node>;
@@ -32,53 +38,7 @@ enum Direction
 	Right = 'R',
 };
 
-
-// EVERGREEN FUNCS
-const int parseInputFile(std::vector<std::string>& list);
-const size_t convertCharToInt(std::string intAsChars);
-
-// PUZZLE FUNCS
-void createDesertMap(std::vector<std::string>& list, std::string& desertMap);
-void createNodes(std::vector<std::string>& list, NodeMap& nodemap);
-const size_t traverseNodes(std::string& desertMap, NodeMap& nodemap);
-const size_t traverseManyNodes(std::string& desertMap, NodeMap& nodemap);
-Direction getNextMapMove(std::string& desertMap, size_t& stepsTaken);
-
-
-int main()
-{
-	// PARSE INPUT FILE //
-
-	std::vector<std::string> list;
-
-	if (parseInputFile(list) == 1)
-	{
-		return 1;
-	}
-		
-	size_t answer = 0;
-
-	// SOLVE PUZZLE //
-	std::string desertMap;
-	NodeMap nodemap;
-	
-	createDesertMap(list, desertMap);
-	createNodes(list, nodemap);
-
-	if (PUZZLE_PART == 1)
-	{		
-		answer = traverseNodes(desertMap, nodemap);
-	}
-	else
-	{
-		answer = traverseManyNodes(desertMap, nodemap);
-	}
-
-	std::cout << "The answer to part " << PUZZLE_PART << " is: " << answer << std::endl;
-
-	return 0;
-}
-
+// EVERGREEN FUNCS //
 
 // Get and store input as lines of strings.
 const int parseInputFile(std::vector<std::string>& list)
@@ -123,6 +83,8 @@ const size_t convertCharToInt(std::string intAsChars)
 	return value;
 }
 
+
+// PUZZLE FUNCS //
 
 void createDesertMap(std::vector<std::string>& list, std::string& desertMap)
 {
@@ -182,6 +144,27 @@ void createNodes(std::vector<std::string>& list, NodeMap& nodemap)
 }
 
 
+Direction getNextMapMove(std::string& desertMap, size_t& stepsTaken)
+{
+	Direction direction;
+
+	size_t loopStep = stepsTaken % desertMap.length();
+
+	if (desertMap[loopStep] == 'L')
+	{
+		direction = Direction::Left;
+	}
+	else
+	{
+		direction = Direction::Right;
+	}
+
+	++stepsTaken;
+
+	return direction;
+}
+
+
 const size_t traverseNodes(std::string& desertMap, NodeMap& nodemap)
 {
 	size_t stepsTaken = 0;
@@ -209,63 +192,125 @@ const size_t traverseNodes(std::string& desertMap, NodeMap& nodemap)
 }
 
 
+struct lowest_distance_key
+{
+	bool operator()(Node& nodeA, Node& nodeB)
+	{
+		return nodeA.distance < nodeB.distance;
+	}
+};
+
+
 const size_t traverseManyNodes(std::string& desertMap, NodeMap& nodemap)
 {
-	size_t stepsTaken = 0;
+	// Find starting nodes.
+	std::vector<Node> nodes;
 
-	for (auto& node : nodemap)
+	for (std::pair<const std::string, Node>& nodepair : nodemap)
 	{
-		if (doesIdEndWith('A', node.second.id))
+		if (nodepair.first[2] == 'A')
 		{
-			 
+			nodes.push_back(nodepair.second);
+			nodes[nodes.size() - 1].cycle = 0;
+			nodes[nodes.size() - 1].distance = 0;
+			nodes[nodes.size() - 1].id = nodepair.first;
 		}
 	}
-	size_t nodeCount = 
-	Node node = nodemap["AAA"];
 
+	// Find cycle of each node (steps until a Z is reached - should be cyclic).
+	for (size_t i = 0; i < nodes.size(); ++i)
+	{
+		size_t stepsTaken = 0;
+
+		Node& node = nodes[i];
+
+		Node traversalNode{ node };
+
+		while (true)
+		{
+			if (getNextMapMove(desertMap, stepsTaken) == Direction::Left)
+			{
+				traversalNode = nodemap[traversalNode.leftPath];
+			}
+			else
+			{
+				traversalNode = nodemap[traversalNode.rightPath];
+			}
+
+			if (traversalNode.id[2] == 'Z')
+			{				
+				node.cycle = stepsTaken;
+				break;
+			}
+		}
+	}
+
+	// Advance the shortest "distance" by the node's cycle until all distances are equal. That is when all are on a Z node.
+	std::sort(nodes.begin(), nodes.end(), lowest_distance_key());
 	while (true)
 	{
-		if (getNextMapMove(desertMap, stepsTaken) == Direction::Left)
+		// Apply cycle to shortest distance.
+		nodes[0].distance += nodes[0].cycle;
+
+		// See if all distances match (all on Z).
+		bool allMatch = true;
+		for (size_t i = 0; i < nodes.size() - 1; ++i)
 		{
-			node = nodemap[node.leftPath];
-		}
-		else
-		{
-			node = nodemap[node.rightPath];
+			if (nodes[i].distance != nodes[i + 1].distance)
+			{
+				allMatch = false;
+				break;
+			}
 		}
 
-		if (node.id == "ZZZ")
+		// Break if all on Z.
+		if (allMatch)
 		{
 			break;
 		}
+
+		// If first node distance is longer than next node, sort all nodes again.
+		if (nodes[0].distance > nodes[1].distance)
+		{
+			std::sort(nodes.begin(), nodes.end(), lowest_distance_key());
+		}
 	}
 
-	return stepsTaken;
+	// Return distance stepped.
+	return nodes[0].distance;
 }
 
 
-bool doesIdEndWith(char letter, std::string& id)
+int main()
 {
-	return id[3] == letter;
-}
+	// PARSE INPUT FILE //
 
+	std::vector<std::string> list;
 
-Direction getNextMapMove(std::string& desertMap, size_t& stepsTaken)
-{
-	Direction direction;
-
-	size_t loopStep = stepsTaken % desertMap.length();
-
-	if (desertMap[loopStep] == 'L')
+	if (parseInputFile(list) == 1)
 	{
-		direction = Direction::Left;
+		return 1;
+	}
+
+	size_t answer = 0;
+
+	// SOLVE PUZZLE //
+	std::string desertMap;
+	NodeMap nodemap;
+
+	createDesertMap(list, desertMap);
+	createNodes(list, nodemap);
+
+	if (PUZZLE_PART == 1)
+	{
+		answer = traverseNodes(desertMap, nodemap);
 	}
 	else
 	{
-		direction = Direction::Right;
+		answer = traverseManyNodes(desertMap, nodemap);
 	}
 
-	++stepsTaken;
+	std::cout << "The answer to part " << PUZZLE_PART << " is: " << answer << std::endl;
 
-	return direction;
+	return 0;
 }
