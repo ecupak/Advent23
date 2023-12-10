@@ -13,7 +13,7 @@
 
 
 // DIFFICULTY
-static constexpr int PUZZLE_PART = 1;
+static constexpr int PUZZLE_PART = 2;
 
 
 // QOL
@@ -246,38 +246,99 @@ const size_t traverseManyNodes(std::string& desertMap, NodeMap& nodemap)
 	}
 
 	// Advance the shortest "distance" by the node's cycle until all distances are equal. That is when all are on a Z node.
-	std::sort(nodes.begin(), nodes.end(), lowest_distance_key());
-	while (true)
-	{
-		// Apply cycle to shortest distance.
-		nodes[0].distance += nodes[0].cycle;
 
-		// See if all distances match (all on Z).
-		bool allMatch = true;
-		for (size_t i = 0; i < nodes.size() - 1; ++i)
+	// LCM listing approach.
+	if (true)
+	{
+		// Start with largest cycle and work backwards.		
+		std::sort(nodes.begin(), nodes.end(), [=](const Node& a, const Node& b) {return a.cycle > b.cycle; });
+
+		// Store multiples of the the largest		
+		std::array<size_t, 1'000> mainMultiples{ 0 };
+		size_t loopCounter = 0;
+
+		while (true) // make it or break it.
 		{
-			if (nodes[i].distance != nodes[i + 1].distance)
+			// Get multiples.
+			for (int n = 0; n < nodes.size(); ++n)
 			{
-				allMatch = false;
+				size_t cycle = nodes[n].cycle;				
+
+				for (size_t i = 0; i < mainMultiples.size(); ++i)
+				{
+					mainMultiples[i] = cycle * (i + 1 + loopCounter);
+				}
+			}
+
+			// Find the common multiples.
+			for (int i = 0; i < mainMultiples.size(); ++i)
+			{
+				// Use the largest cycle's multiples to match against.
+				size_t multipleToFind = mainMultiples[i];
+
+				bool lcmFound = true;
+				for (int n = 1; n < nodes.size(); ++n)
+				{					
+					if (multipleToFind % nodes[i].cycle != 0)
+					{
+						lcmFound = false;
+						break;
+					}
+					else
+					{
+						continue;
+					}
+				}
+
+				if (lcmFound)
+				{
+					return multipleToFind;
+				}
+			}
+			
+			loopCounter += mainMultiples.size();
+		}
+		std::cout << "Did not find match using LCM multiples.\n";
+	}
+
+	// Naive approach.
+	if (false)
+	{
+		std::sort(nodes.begin(), nodes.end(), lowest_distance_key());
+		while (true)
+		{
+			// Apply cycle to shortest distance.
+			nodes[0].distance += nodes[0].cycle;
+
+			// See if all distances match (all on Z).
+			bool allMatch = true;
+			for (size_t i = 0; i < nodes.size() - 1; ++i)
+			{
+				if (nodes[i].distance != nodes[i + 1].distance)
+				{
+					allMatch = false;
+					break;
+				}
+			}
+
+			// Break if all on Z.
+			if (allMatch)
+			{
 				break;
+			}
+
+			// If first node distance is longer than next node, sort all nodes again.
+			if (nodes[0].distance > nodes[1].distance)
+			{
+				std::sort(nodes.begin(), nodes.end(), lowest_distance_key());
 			}
 		}
 
-		// Break if all on Z.
-		if (allMatch)
-		{
-			break;
-		}
-
-		// If first node distance is longer than next node, sort all nodes again.
-		if (nodes[0].distance > nodes[1].distance)
-		{
-			std::sort(nodes.begin(), nodes.end(), lowest_distance_key());
-		}
+		// Return distance stepped.
+		return nodes[0].distance;
 	}
 
-	// Return distance stepped.
-	return nodes[0].distance;
+	return 0;
 }
 
 
